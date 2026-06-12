@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
+import hashlib
+import secrets
 from jose import jwt, JWTError
-from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,20 +10,23 @@ from app.config import settings
 from app.database import get_db
 from app.models import User
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 security = HTTPBearer(auto_error=False)
 
-# Special access key for initial login
 SPECIAL_ACCESS_KEY = "lionlionlion"
 SPECIAL_USERNAME = "admin"
 
 
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
-
-
 def get_password_hash(password: str) -> str:
-    return pwd_context.hash(password)
+    salt = secrets.token_hex(16)
+    pwd_hash = hashlib.sha256(f"{salt}{password}".encode()).hexdigest()
+    return f"{salt}${pwd_hash}"
+
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    if "$" not in hashed_password:
+        return hashed_password == hashlib.sha256(plain_password.encode()).hexdigest()
+    salt, pwd_hash = hashed_password.split("$", 1)
+    return pwd_hash == hashlib.sha256(f"{salt}{plain_password}".encode()).hexdigest()
 
 
 def create_access_token(data: dict) -> str:
