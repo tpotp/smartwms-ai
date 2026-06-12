@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: smartwms-ai
+    runtime: image
+    repo: https://github.com
+    plan: free
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: smartwms-db
+          property: connectionString
+      - key: DATABASE_URL_SYNC
+        fromDatabase:
+          name: smartwms-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+    healthCheckPath: /api/health
+
+databases:
+  - name: smartwms-db
+    plan: free
+    databaseName: smartwms
+    user: smartwms
