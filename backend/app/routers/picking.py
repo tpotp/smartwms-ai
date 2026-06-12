@@ -68,16 +68,21 @@ async def list_picking_tasks(
     if status:
         q = q.where(PickingTask.status == status)
     result = await db.execute(q)
-    tasks = result.scalars().all()
     out = []
-    for t in tasks:
+    for t in result.scalars().all():
         o_result = await db.execute(select(Order).where(Order.id == t.order_id))
         order = o_result.scalar_one_or_none()
-        t_out = PickingTaskOut.model_validate(t)
-        if order:
-            from app.schemas import OrderOut
-            t_out.order = OrderOut.model_validate(order)
-        out.append(t_out)
+        from app.schemas import OrderOut
+        out.append(PickingTaskOut(
+            id=t.id, order_id=t.order_id, assigned_to=t.assigned_to,
+            status=t.status, created_at=t.created_at, completed_at=t.completed_at,
+            order=OrderOut(
+                id=order.id, order_number=order.order_number, order_type=order.order_type,
+                status=order.status, warehouse_id=order.warehouse_id, customer=order.customer,
+                notes=order.notes, created_by=order.created_by, created_at=order.created_at,
+                items=[],
+            ) if order else None,
+        ))
     return out
 
 

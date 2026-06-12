@@ -81,17 +81,22 @@ async def _get_full_order(order_id: int, db: AsyncSession) -> OrderOut:
     order = result.scalar_one_or_none()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
-
     items_result = await db.execute(select(OrderItem).where(OrderItem.order_id == order_id))
     items = items_result.scalars().all()
-
-    order_out = OrderOut.model_validate(order)
-    order_out.items = []
+    out_items = []
     for item in items:
         p_result = await db.execute(select(Product).where(Product.id == item.product_id))
         product = p_result.scalar_one_or_none()
-        item_out = OrderItemOut.model_validate(item)
-        if product:
-            item_out.product = product
-        order_out.items.append(item_out)
-    return order_out
+        from app.schemas import OrderItemOut
+        out_items.append(OrderItemOut(
+            id=item.id, order_id=item.order_id, product_id=item.product_id,
+            quantity_ordered=item.quantity_ordered, quantity_picked=item.quantity_picked,
+            quantity_shipped=item.quantity_shipped,
+            product=product,
+        ))
+    return OrderOut(
+        id=order.id, order_number=order.order_number, order_type=order.order_type,
+        status=order.status, warehouse_id=order.warehouse_id, customer=order.customer,
+        notes=order.notes, created_by=order.created_by, created_at=order.created_at,
+        items=out_items,
+    )
